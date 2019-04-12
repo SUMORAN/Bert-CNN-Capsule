@@ -1,1 +1,1 @@
-# Bert-CNN-Capsule source code
+# Bert-CNN-Capsule source code for text classification
