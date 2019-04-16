@@ -73,34 +73,27 @@ flags.DEFINE_string(
 
 class Dataprocessor_trip(object):
     @classmethod
-    def _read_tsv(cls, input_file, quotechar=None):
+    def _read_file(cls, input_file, quotechar=None):
         """Reads a tab separated value file."""
-        with tf.gfile.Open(input_file, "r") as f:
-            reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
-            lines = []
-            for line in reader:
-                lines.append(line)
+        with open(input_file) as fin:
+            lines = fin.readlines()
         return lines
 
     def get_train_examples(self, data_dir):
         return self._create_examples(
             # self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
-            self._read_tsv(os.path.join(data_dir, "train")), "train")
+            self._read_file(os.path.join(data_dir, "train")), "train")
 
     def get_dev_examples(self, data_dir):
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+            self._read_file(os.path.join(data_dir, "dev.tsv")), "dev")
 
     def get_test_examples(self, data_dir):
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "test")), "test")
-
-    def get_predict_examples(self, data_dir):
-        return self._create_predict_examples(
-            self._read_tsv(os.path.join(data_dir, "predict.tsv")), "predict")
+            self._read_file(os.path.join(data_dir, "test")), "test")
 
     def get_labels(self):
-        return ['-1', '0', '1', '2', '3', '4', '5']
+        return ['0', '1', '2', '3', '4', '5']
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
@@ -112,14 +105,16 @@ class Dataprocessor_trip(object):
         label_cleanliness = []
         label_location = []
         label_room = []
+        label_overall = []
 
         for (i, line) in enumerate(lines):
             # print('------------------------------')
             # print('line:{}'.format(line))
-            line = line[0].split(' ')
+            seg = line.split('\t\t')
             # print('------------------------------')
             # print('new_line:{}'.format(line))
-            text_a = tokenization.convert_to_unicode(' '.join(line[0:-7]).replace('\n', '').replace('。','').replace('，','')\
+            # 文本部分
+            text_a = tokenization.convert_to_unicode(' '.join(seg[-1].split('<ssssss>')).replace('\n', '').replace('。','').replace('，','')\
                         .replace('-', ' ').replace(',', ' ').replace('@', ' ')\
                         .replace(' 1\n', '').replace(' 2\n', '').replace(' 3\n', '').replace(' 4\n', '').replace(' 5\n', '')\
                         .replace(' 7\n', '').replace(' 8\n', '').replace(' 9\n', '').replace(' 10\n', '').replace('<br />', ' ')\
@@ -127,63 +122,54 @@ class Dataprocessor_trip(object):
                         .replace(';', ' ').replace('*', '').replace('_', '').replace('\'s', ' ').replace('\' ', ' ').replace('\n', ' ')\
                         .replace('~', ' ').replace('&', ' ').replace('/', ' ').replace('\"', '').replace('$', '').replace('%', ''))
 
-            checkin = int(line[-1])
+            examples.append(text_a)
+            # 标签部分
+            tmp_labels = seg[0].split(' ')
+            checkin = int(tmp_labels[-1])
             if checkin == -1:
                 checkin = 0
                 # 标签从0开始
             label_checkin.append(checkin)
-            value = int(line[-2])
+            value = int(tmp_labels[-2])
             if value == -1:
                 value = 0
             label_value.append(value)
-            business = int(line[-3])
+            business = int(tmp_labels[-3])
             if business == -1:
                 business = 0
             label_business.append(business)
-            service = int(line[-4])
+            service = int(tmp_labels[-4])
             if service == -1:
                 service = 0
             label_service.append(service)
-            cleanliness = int(line[-5])
+            cleanliness = int(tmp_labels[-5])
             if cleanliness == -1:
                 cleanliness = 0
             label_cleanliness.append(cleanliness)
-            location = int(line[-6])
+            location = int(tmp_labels[-6])
             if location == -1:
                 location = 0
             label_location.append(location)
-            room = int(line[-7])
+            room = int(tmp_labels[-7])
             if room == -1:
                 room = 0
             label_room.append(room)
-            examples.append(text_a)
-        labels = [  label_checkin,
+            overall = int(tmp_labels[-8])
+            if overall == -1:
+                overall = 0
+            label_overall.append(overall)
+
+        labels = [label_overall,
+                    label_checkin,
                     label_value,
                     label_business,
                     label_service,
                     label_cleanliness,
                     label_location,
                     label_room
-                  ]
-
+                    ]
 
         return examples, labels
-
-
-    def _create_predict_examples(self, lines, set_type):
-        """Creates examples for the predict sets."""
-        examples = []
-        for (i, line) in enumerate(lines):
-            line = line[0].split(' ')
-            text_a = tokenization.convert_to_unicode(' '.join(line[0:-1]).replace('\n', '').replace('。','').replace('，','')\
-                        .replace('-', ' ').replace(',', ' ').replace('@', ' ').replace('/', ' ')\
-                        .replace(' 1\n', '').replace(' 2\n', '').replace(' 3\n', '').replace(' 4\n', '').replace(' 5\n', '')\
-                        .replace(' 7\n', '').replace(' 8\n', '').replace(' 9\n', '').replace(' 10\n', '').replace('<br />', ' ')\
-                        .replace("\"", " ").replace(":", " ").replace('=', ' ').replace('[', ' ').replace(']', ' ').replace('+', ' ')\
-                        .replace(';', ' ').replace('*', '').replace('_', '').replace('\'s', ' ').replace('\' ', ' ').replace('\n', ' ')\
-                        .replace('~', ' ').replace('&', ' ').replace('/', ' ').replace('\"', '').replace('$', '').replace('%', ''))
-            examples.append(text_a)
-        return examples
 
 
 class Dataprocessor_yelp(object):
@@ -200,22 +186,22 @@ class Dataprocessor_yelp(object):
     def get_train_examples(self, data_dir):
         return self._create_examples(
             # self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
-            self._read_tsv(os.path.join(data_dir, "dataTrain")), "dataTrain")
+            self._read_tsv(os.path.join(data_dir, "train")), "train")
 
     def get_dev_examples(self, data_dir):
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+            self._read_tsv(os.path.join(data_dir, "dev")), "dev")
 
     def get_test_examples(self, data_dir):
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "dataTest")), "dataTest")
+            self._read_tsv(os.path.join(data_dir, "test")), "test")
 
     def get_predict_examples(self, data_dir):
         return self._create_predict_examples(
             self._read_tsv(os.path.join(data_dir, "predict.tsv")), "predict")
 
     def get_labels(self):
-        return ["1", "0", "-1", "-2"]
+        return ["1", "2", "3", "4", "5"]
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
@@ -256,15 +242,14 @@ class Dataprocessor_yelp(object):
         return examples
 
 
-
 def data_sentence_embedding(data_set='train'):
     """
     :function: 通过bert_as_service 生成text的向量表示
     :param data_set: 数据集类型，default=train， 根据实际需要可以设置为train，dev，test, predict
     :return: data_embeddings and labels
     """
-    # data_getter = Dataprocessor_yelp()
-    data_getter = Dataprocessor_trip()
+    data_getter = Dataprocessor_yelp()
+    # data_getter = Dataprocessor_trip()
     if data_set == 'train':
         if os.path.exists(TRAIN_SENTENCE_EMBEDDING_PATH) and os.path.exists(TRAIN_LABEL_PATH):
             print('----Load train embeddings----')
@@ -274,7 +259,7 @@ def data_sentence_embedding(data_set='train'):
             return train_embedding, train_labels
 
         else:
-            train_examples, train_labels = data_getter.get_train_examples(data_dir=tripadvisor_path)
+            train_examples, train_labels = data_getter.get_train_examples(data_dir=Yelp_data_path)
             # train_examples, train_labels = data_getter.get_train_examples(data_dir="Amazon_mobile_reviews")
             print('----Generate train embeddings----')
             bc = BertClient(ip='192.168.3.4')
@@ -295,7 +280,7 @@ def data_sentence_embedding(data_set='train'):
             return dev_embedding, dev_labels
 
         else:
-            dev_examples, dev_labels = data_getter.get_dev_examples(data_dir=tripadvisor_path)
+            dev_examples, dev_labels = data_getter.get_dev_examples(data_dir=Yelp_data_path)
             # dev_examples, dev_labels = data_getter.get_dev_examples(data_dir="Amazon_mobile_reviews")
             print('----Generate dev embeddings----')
             bc = BertClient(ip='192.168.3.4')
@@ -314,7 +299,7 @@ def data_sentence_embedding(data_set='train'):
             return test_embedding, test_labels
 
         else:
-            test_examples, test_labels = data_getter.get_test_examples(data_dir=tripadvisor_path)
+            test_examples, test_labels = data_getter.get_test_examples(data_dir=Yelp_data_path)
             # test_examples, test_labels = data_getter.get_test_examples(data_dir="Amazon_mobile_reviews")
             print('----Generate test embeddings----')
             bc = BertClient(ip='192.168.3.4')
@@ -324,13 +309,6 @@ def data_sentence_embedding(data_set='train'):
             np.save(TEST_LABEL_PATH, test_labels)
             print('----Save test embeddings DONE----')
             return test_embedding, test_labels
-
-    elif data_set == 'predict':
-        predict_examples = data_getter.get_predict_examples(data_dir=tripadvisor_path)
-        bc = BertClient(ip='192.168.3.4')
-        # flags.MAX_predict_length = max(predict_examples, key=len)
-        predict_embedding = bc.encode(predict_examples)
-        return predict_embedding
 
 
 def data_word_embedding(data_set='train'):
@@ -356,7 +334,10 @@ def data_word_embedding(data_set='train'):
             # train_examples, train_labels = data_getter.get_train_examples(data_dir="Amazon_mobile_reviews")
             print('----Generate train embeddings----')
             bc = BertClient(ip='192.168.3.4')
-            train_embedding = bc.encode(train_examples)
+            train_embedding = []
+            for (i, item) in enumerate(train_examples):
+                print("train {}".format(i))
+                train_embedding.append(bc.encode([item])[0])
             print('----Save train embeddings----')
             np.save(TRAIN_WORD_EMBEDDING_PATH, train_embedding)
             np.save(TRAIN_LABEL_PATH, train_labels)
@@ -399,7 +380,10 @@ def data_word_embedding(data_set='train'):
             # test_examples, test_labels = data_getter.get_test_examples(data_dir="Amazon_mobile_reviews")
             print('----Generate test embeddings----')
             bc = BertClient(ip='192.168.3.4')
-            test_embedding = bc.encode(test_examples)
+            test_embedding = []
+            for (i, item) in enumerate(test_examples):
+                print("test {}".format(i))
+                test_embedding.append(bc.encode([item])[0])
             print('----Save test embeddings----')
             np.save(TEST_WORD_EMBEDDING_PATH, test_embedding)
             np.save(TEST_LABEL_PATH, test_labels)
@@ -407,7 +391,7 @@ def data_word_embedding(data_set='train'):
             return test_embedding, test_labels
 
     elif data_set == 'predict':
-        predict_examples = data_getter.get_predict_examples(data_dir=tripadvisor_path)
+        predict_examples = data_getter.get_test_examples(data_dir=tripadvisor_path)
         bc = BertClient(ip='192.168.3.4')
         # flags.MAX_predict_length = max(predict_examples, key=len)
         predict_embedding = bc.encode(predict_examples)
@@ -439,7 +423,7 @@ if __name__ == '__main__':
     # print('shape:', train_embedding.shape)
     # print('train_embedding', train_embedding)
     # print('000000000000000000000000000')
-    train_x, train_y = data_word_embedding('train')
+    # train_x, train_y = data_word_embedding('train')
     test_x, test_y = data_word_embedding('test')
     print('111111')
     #
