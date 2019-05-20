@@ -16,12 +16,12 @@ import model
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--save_dir', default='trip_result/0')
+parser.add_argument('--save_dir', default='yelp_result/news')
 parser.add_argument('--batch_size', default=64, type=int)
 args = parser.parse_args()
 
-MAX_SEQUENCE_LEN = 180
-NUM_CLASSES = 6
+MAX_SEQUENCE_LEN = 120
+NUM_CLASSES = 5
 
 test_x, test_y = data_helper.data_word_embedding('test')
 
@@ -54,9 +54,9 @@ model.compile(loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 print(model.summary())
 '''
-model = model.cnn(input)
+model = model.caps(input) # ,kernel_size=5
 # load
-model.load_weights(args.save_dir + '/weights-cnn-trained_model.h5')
+model.load_weights(args.save_dir + '/weights-caps-12.h5')
 predicts = model.predict(test_x, batch_size=args.batch_size)
 predict_y = []
 for item in predicts:
@@ -65,16 +65,17 @@ for item in predicts:
 
 # print(predict_y)
 
-data_getter = data_helper.Dataprocessor_trip()
-test_examples, test_labels = data_getter.get_test_examples(data_dir="trip advisor")
-c = {"text": test_examples,
-     "label": test_y[0],
-     "predict_y": predict_y
+data_getter = data_helper.Dataprocessor_yelp()
+test_examples, test_labels = data_getter.get_test_examples(data_dir="yelp_new_reviews")
+c = {
+     "label": test_y,
+     "predict_y": predict_y,
+     "text": test_examples
      }
      
 df = pd.DataFrame(c)
 df_same = df[(df.label == df.predict_y)]
 df_different = df[(df.label != df.predict_y)]
-df_same.to_csv('same-cnn.csv', sep='\t', encoding='utf-8', index=False)
-df_different.to_csv('different-cnn.csv', sep='\t', encoding='utf-8', index=False)
+df_same.to_csv('right-rnn.csv', sep='\t', encoding='utf-8', index=False)
+df_different.to_csv('yelp-bert-caps.csv', sep='\t', encoding='utf-8', index=False)
 print('save done!')
